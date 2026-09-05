@@ -1,0 +1,42 @@
+#!/usr/bin/env php
+<?php
+
+$autoloadPaths = [
+    __DIR__ . '/../../../autoload.php',
+    __DIR__ . '/../vendor/autoload.php',
+];
+
+foreach ($autoloadPaths as $autoloadPath) {
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+        break;
+    }
+}
+
+use function Downloader\Downloader\downloadPage;
+
+$currentDir = getcwd();
+
+$doc = <<<DOC
+Downloads page from URL and save it locally
+
+Usage:
+    page-loader (-h|--help)
+    page-loader [--output <dir>] <url>
+    page-loader (-v|--version)
+
+Options:
+  -h --help            display help for command
+  -v --version         output the version number
+  -o --output <dir>    output dir [default: $currentDir]
+DOC;
+
+$args = Docopt::handle($doc, ['version' => '1.0']);
+
+try {
+    $filepath = downloadPage($args['<url>'], $args['--output']);
+    print_r("Page was successfully downloaded into {$filepath}\n");
+} catch (\Exception $exception) {
+    fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    exit(1);
+}
