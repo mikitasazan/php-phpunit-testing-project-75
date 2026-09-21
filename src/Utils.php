@@ -8,7 +8,7 @@ namespace Downloader\Utils;
  */
 function toSlug(string $name, string $separator = '-'): string
 {
-    $parts = preg_split('/[-._\/]/', $name);
+    $parts = preg_split('/[-._:\/]/', $name);
 
     if ($parts === false) {
         throw new \Exception("Не удалось разобрать имя: {$name}");

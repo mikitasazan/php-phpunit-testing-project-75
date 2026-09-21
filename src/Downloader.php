@@ -27,8 +27,10 @@ function createLogger(string $dirname): Logger
 
 /**
  * Абсолютный адрес ресурса, если он лежит на том же сайте, иначе null.
+ *
+ * $authority — host[:port] страницы, $origin — её scheme://host[:port].
  */
-function toLocalUrl(string $rawUrl, string $scheme, string $host): ?string
+function toLocalUrl(string $rawUrl, string $origin, string $authority): ?string
 {
     $parsedUrl = parse_url($rawUrl);
 
@@ -36,13 +38,19 @@ function toLocalUrl(string $rawUrl, string $scheme, string $host): ?string
         return null;
     }
 
-    if (isset($parsedUrl['host']) && $parsedUrl['host'] !== $host) {
-        return null;
+    if (isset($parsedUrl['host'])) {
+        $assetAuthority = isset($parsedUrl['port'])
+            ? "{$parsedUrl['host']}:{$parsedUrl['port']}"
+            : $parsedUrl['host'];
+
+        if ($assetAuthority !== $authority) {
+            return null;
+        }
     }
 
     $path = ltrim($parsedUrl['path'], '/');
 
-    return "{$scheme}://{$host}/{$path}";
+    return "{$origin}/{$path}";
 }
 
 /**
@@ -51,7 +59,7 @@ function toLocalUrl(string $rawUrl, string $scheme, string $host): ?string
  *
  * @return array<int, array{url: string, filename: string}>
  */
-function collectAssets(DOMDocument $document, string $scheme, string $host, string $assetsDirname): array
+function collectAssets(DOMDocument $document, string $origin, string $authority, string $assetsDirname): array
 {
     $assets = [];
 
@@ -67,7 +75,7 @@ function collectAssets(DOMDocument $document, string $scheme, string $host, stri
                 continue;
             }
 
-            $url = toLocalUrl($rawUrl, $scheme, $host);
+            $url = toLocalUrl($rawUrl, $origin, $authority);
 
             if ($url === null) {
                 continue;
@@ -95,8 +103,10 @@ function downloadPage(string $url, string $outputDir = '', string $clientClass =
 
     $scheme = $parsedUrl['scheme'] ?? 'http';
     $host = $parsedUrl['host'];
+    $authority = isset($parsedUrl['port']) ? "{$host}:{$parsedUrl['port']}" : $host;
+    $origin = "{$scheme}://{$authority}";
     $path = $parsedUrl['path'] ?? '';
-    $slug = "{$host}{$path}";
+    $slug = "{$authority}{$path}";
 
     $outputDirPath = realpath($outputDir);
 
@@ -114,7 +124,7 @@ function downloadPage(string $url, string $outputDir = '', string $clientClass =
     $document = new DOMDocument();
     @$document->loadHTML($html, LIBXML_HTML_NODEFDTD);
 
-    $assets = collectAssets($document, $scheme, $host, $assetsDirname);
+    $assets = collectAssets($document, $origin, $authority, $assetsDirname);
 
     $logger = createLogger($outputDirPath);
     $logger->info("Создаю директорию для ресурсов: {$assetsDirPath}");
